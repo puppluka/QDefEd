@@ -1,6 +1,6 @@
 import re
 import tkinter as tk
-from tkinter import filedialog, messagebox, scrolledtext
+from tkinter import filedialog, messagebox, scrolledtext, colorchooser
 
 class QuakeEntity:
     def __init__(self, name="", rgb=(0.8, 0.1, 0.8), bbox_min=None, bbox_max=None, flags=None, info=""):
@@ -13,7 +13,7 @@ class QuakeEntity:
 
     def to_def_string(self):
         """Converts the entity data to a Quake .def file string."""
-        rgb_str = f"({self.rgb[0]:.1f} {self.rgb[1]:.1f} {self.rgb[2]:.1f})"
+        rgb_str = f"({self.rgb[0]:.2f} {self.rgb[1]:.2f} {self.rgb[2]:.2f})" # Using .2f for consistency
 
         # Handle BBox values based on presence
         # Requirement 1: Only one '?' in the definition if no BBox values are present
@@ -163,6 +163,8 @@ class EntityEditorApp:
         tk.Label(self.details_frame, text="RGB (R G B):").grid(row=1, column=0, sticky="w", padx=5, pady=2)
         self.rgb_entry = tk.Entry(self.details_frame, width=50)
         self.rgb_entry.grid(row=1, column=1, sticky="ew", padx=5, pady=2)
+        # *** NEW: Bind double-click event to the RGB entry field ***
+        self.rgb_entry.bind('<Double-1>', self._on_rgb_double_click)
 
         tk.Label(self.details_frame, text="BBox Min (X Y Z or ?):").grid(row=2, column=0, sticky="w", padx=5, pady=2)
         self.bbox_min_entry = tk.Entry(self.details_frame, width=50)
@@ -370,6 +372,39 @@ class EntityEditorApp:
                 self._load_entity_details(self.entities[new_selection_index])
             else:
                 self.selected_entity_index = None
+
+    # *** NEW METHOD: Handles the double-click event on the RGB entry field ***
+    def _on_rgb_double_click(self, event):
+        """Opens a color chooser and updates the RGB entry field."""
+        # Try to get the current color to use as the initial color
+        try:
+            current_rgb_str = self.rgb_entry.get().strip().split()
+            # Convert from 0.0-1.0 scale to 0-255 scale
+            r_int = int(float(current_rgb_str[0]) * 255)
+            g_int = int(float(current_rgb_str[1]) * 255)
+            b_int = int(float(current_rgb_str[2]) * 255)
+            initial_color_hex = f'#{r_int:02x}{g_int:02x}{b_int:02x}'
+        except (ValueError, IndexError):
+            # If parsing fails for any reason, default to no initial color
+            initial_color_hex = None
+
+        # Open the color chooser dialog
+        result = colorchooser.askcolor(initialcolor=initial_color_hex, title="Choose a color for the entity")
+
+        # The result is a tuple: ((R, G, B), '#RRGGBB') or (None, None) if cancelled
+        if result and result[0]:
+            rgb_255 = result[0] # This is the (R, G, B) tuple with values from 0-255
+
+            # Convert 0-255 values to 0.0-1.0 float and round to 2 decimal places
+            # as per the user's request.
+            quake_rgb = [round(c / 255.0, 2) for c in rgb_255]
+
+            # Format the string for the entry box
+            new_rgb_string = f"{quake_rgb[0]} {quake_rgb[1]} {quake_rgb[2]}"
+
+            # Update the entry box
+            self.rgb_entry.delete(0, tk.END)
+            self.rgb_entry.insert(0, new_rgb_string)
 
 
     def _apply_entity_changes(self):
